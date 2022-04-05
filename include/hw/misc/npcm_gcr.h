@@ -69,14 +69,15 @@ struct NPCMGCRState {
     uint32_t reset_pwron;
     uint32_t reset_mdlr;
     uint32_t reset_intcr3;
+    uint32_t reset_scrpad_b;
 };
 
-typedef struct NPCMGCRClass {
+struct NPCMGCRClass {
     SysBusDeviceClass parent;
 
     size_t nr_regs;
     const uint32_t *cold_reset_values;
-} NPCMGCRClass;
+};
 
 #define TYPE_NPCM_GCR "npcm-gcr"
 OBJECT_DECLARE_TYPE(NPCMGCRState, NPCMGCRClass, NPCM_GCR)
