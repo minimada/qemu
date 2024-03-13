@@ -206,6 +206,16 @@ static void npcm750_evb_i2c_init(NPCM7xxState *soc)
     i2c_slave_create_simple(npcm7xx_i2c_get_bus(soc, 6), "tmp105", 0x48);
 }
 
+static void buv_runbmc_i2c_init(NPCM7xxState *soc)
+{
+    i2c_slave_create_simple(npcm7xx_i2c_get_bus(soc, 12), "tmp105", 0x48);
+    i2c_slave_create_simple(npcm7xx_i2c_get_bus(soc, 13), "tmp105", 0x4A);
+    at24c_eeprom_init(npcm7xx_i2c_get_bus(soc, 4), 0x50, 65536);
+    at24c_eeprom_init(npcm7xx_i2c_get_bus(soc, 13), 0x51, 131072);
+    i2c_slave_create_simple(npcm7xx_i2c_get_bus(soc, 11), "pca9548", 0x38);
+    i2c_slave_create_simple(npcm7xx_i2c_get_bus(soc, 12), "pca9548", 0x70);
+}
+
 static void npcm750_evb_fan_init(NPCM7xxMachine *machine, NPCM7xxState *soc)
 {
     SplitIRQ *splitter = machine->fan_splitter;
@@ -375,6 +385,22 @@ static void npcm750_evb_init(MachineState *machine)
     npcm750_evb_fan_init(NPCM7XX_MACHINE(machine), soc);
     npcm7xx_load_kernel(machine, soc);
 }
+static void buv_runbmc_init(MachineState *machine)
+{
+    NPCM7xxState *soc;
+
+    soc = npcm7xx_create_soc(machine, NPCM750_EVB_POWER_ON_STRAPS);
+    npcm7xx_connect_dram(soc, machine->ram);
+    qdev_realize(DEVICE(soc), NULL, &error_fatal);
+
+    npcm7xx_load_bootrom(machine, soc);
+    npcm7xx_connect_flash(&soc->fiu[0], 0, "mx66u51235f",
+                          drive_get(IF_MTD, 0, 0));
+    buv_runbmc_i2c_init(soc);
+    npcm750_evb_fan_init(NPCM7XX_MACHINE(machine), soc);
+    sdhci_attach_drive(&soc->mmc.sdhci, 0);
+    npcm7xx_load_kernel(machine, soc);
+}
 
 static void quanta_gsj_init(MachineState *machine)
 {
@@ -484,6 +510,18 @@ static void npcm750_evb_machine_class_init(ObjectClass *oc, void *data)
     mc->default_ram_size = 512 * MiB;
 };
 
+static void buv_bmc_machine_class_init(ObjectClass *oc, void *data)
+{
+    NPCM7xxMachineClass *nmc = NPCM7XX_MACHINE_CLASS(oc);
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    npcm7xx_set_soc_type(nmc, TYPE_NPCM750);
+
+    mc->desc = "Nuvoton NPCM750 BUV RUNBMC (Cortex-A9)";
+    mc->init = buv_runbmc_init;
+    mc->default_ram_size = 512 * MiB;
+};
+
 static void gsj_machine_class_init(ObjectClass *oc, void *data)
 {
     NPCM7xxMachineClass *nmc = NPCM7XX_MACHINE_CLASS(oc);
@@ -560,6 +598,10 @@ static const TypeInfo npcm7xx_machine_types[] = {
         .name           = MACHINE_TYPE_NAME("mori-bmc"),
         .parent         = TYPE_NPCM7XX_MACHINE,
         .class_init     = mori_bmc_machine_class_init,
+    }, {
+        .name           = MACHINE_TYPE_NAME("buv-runbmc"),
+        .parent         = TYPE_NPCM7XX_MACHINE,
+        .class_init     = buv_bmc_machine_class_init,
     },
 };
 
