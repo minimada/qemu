@@ -21,7 +21,7 @@ are processed in two ways:
 
 The syntax of these ``.hx`` files is simple. It is broadly an
 alternation of C code put into the C output and rST format text
-put into the documention. A few special directives are recognised;
+put into the documentation. A few special directives are recognised;
 these are all-caps and must be at the beginning of the line.
 
 ``HXCOMM`` is the comment marker. The line, including any arbitrary
@@ -30,6 +30,13 @@ nor the documentation output.
 
 ``SRST`` starts a reStructuredText section. Following lines
 are put into the documentation verbatim, and discarded from the C output.
+The alternative form ``SRST()`` is used to define a label which can be
+referenced from elsewhere in the rST documentation. The label will take
+the form ``<DOCNAME-HXFILE-LABEL>``, where ``DOCNAME`` is the name of the
+top level rST file, ``HXFILE`` is the filename of the .hx file without
+the ``.hx`` extension, and ``LABEL`` is the text provided within the
+``SRST()`` directive. For example,
+``<system/invocation-qemu-options-initrd>``.
 
 ``ERST`` ends the documentation section started with ``SRST``,
 and switches back to a C code section.
@@ -53,8 +60,9 @@ text, but in ``hmp-commands.hx`` the C code sections are elements
 of an array of structs of type ``HMPCommand`` which define the
 name, behaviour and help text for each monitor command.
 
-In the file ``qemu-options.hx``, do not try to define a
+In the file ``qemu-options.hx``, do not try to explicitly define a
 reStructuredText label within a documentation section. This file
 is included into two separate Sphinx documents, and some
 versions of Sphinx will complain about the duplicate label
-that results.
+that results. Use the ``SRST()`` directive documented above, to
+emit an unambiguous label.
