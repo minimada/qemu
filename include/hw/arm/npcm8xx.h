@@ -29,6 +29,7 @@
 #include "hw/misc/npcm7xx_mft.h"
 #include "hw/misc/npcm7xx_pwm.h"
 #include "hw/misc/npcm7xx_rng.h"
+#include "hw/misc/npcm_sha.h"
 #include "hw/net/npcm_gmac.h"
 #include "hw/nvram/npcm7xx_otp.h"
 #include "hw/sd/npcm7xx_sdhci.h"
@@ -100,6 +101,7 @@ typedef struct NPCM8xxState {
     NPCM7xxFIUState     fiu[3];
     NPCMGMACState       gmac[4];
     NPCM7xxSDHCIState   mmc;
+    NPCM8xxSHAState     sha;
 } NPCM8xxState;
 
 typedef struct NPCM8xxClass {
