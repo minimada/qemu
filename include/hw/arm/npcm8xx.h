@@ -38,6 +38,7 @@
 #include "hw/usb/hcd-ehci.h"
 #include "hw/usb/hcd-ohci.h"
 #include "target/arm/cpu.h"
+#include "hw/ssi/npcm8xx_pspi.h"
 
 #define NPCM8XX_MAX_NUM_CPUS    (4)
 
@@ -102,6 +103,7 @@ typedef struct NPCM8xxState {
     NPCMGMACState       gmac[4];
     NPCM7xxSDHCIState   mmc;
     NPCM8xxSHAState     sha;
+    NPCM8XXPSPIState    pspi;
 } NPCM8xxState;
 
 typedef struct NPCM8xxClass {
