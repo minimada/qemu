@@ -966,13 +966,9 @@ static void npcm_clk_enter_reset(Object *obj, ResetType type)
     NPCMCLKState *s = NPCM_CLK(obj);
     NPCMCLKClass *c = NPCM_CLK_GET_CLASS(s);
 
-    switch (type) {
-    case RESET_TYPE_COLD:
-        memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
-        s->ref_ns = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-        npcm7xx_clk_update_all_clocks(s);
-        return;
-    }
+    memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
+    s->ref_ns = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    npcm7xx_clk_update_all_clocks(s);
 
     /*
      * A small number of registers need to be reset on a core domain reset,

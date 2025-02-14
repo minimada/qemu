@@ -295,9 +295,9 @@ static void npcm8xx_sha_init(Object *obj)
 }
 
 // clear state
-static void npcm8xx_sha_reset(DeviceState *dev)
+static void npcm8xx_sha_reset(Object *obj, ResetType type)
 {
-    NPCM8xxSHAState *s = NPCM8XX_SHA(dev);
+    NPCM8xxSHAState *s = NPCM8XX_SHA(obj);
 
     s->sha_cfg = 0;
     s->sha_ctr_sts = 0x80;
@@ -327,10 +327,11 @@ static const VMStateDescription vmstate_npcm8xx_sha = {
 static void npcm8xx_sha_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
+    ResettableClass *rc = RESETTABLE_CLASS(klass);
 
     dc->desc = "NPCM8xx SHA Module";
     dc->vmsd = &vmstate_npcm8xx_sha;
-    dc->reset = npcm8xx_sha_reset;
+    rc->phases.enter = npcm8xx_sha_reset;
 }
 
 static const TypeInfo npcm8xx_sha_info[] = {

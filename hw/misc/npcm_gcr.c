@@ -325,15 +325,11 @@ static void npcm7xx_gcr_enter_reset(Object *obj, ResetType type)
     NPCMGCRState *s = NPCM_GCR(obj);
     NPCMGCRClass *c = NPCM_GCR_GET_CLASS(obj);
 
-    switch (type) {
-    case RESET_TYPE_COLD:
-        memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
-        /* These 3 registers are at the same location in both 7xx and 8xx. */
-        s->regs[NPCM7XX_GCR_PWRON] = s->reset_pwron;
-        s->regs[NPCM7XX_GCR_MDLR] = s->reset_mdlr;
-        s->regs[NPCM7XX_GCR_INTCR3] = s->reset_intcr3;
-        break;
-    }
+    memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
+    /* These 3 registers are at the same location in both 7xx and 8xx. */
+    s->regs[NPCM7XX_GCR_PWRON] = s->reset_pwron;
+    s->regs[NPCM7XX_GCR_MDLR] = s->reset_mdlr;
+    s->regs[NPCM7XX_GCR_INTCR3] = s->reset_intcr3;
 }
 
 static void npcm8xx_gcr_enter_reset(Object *obj, ResetType type)
@@ -341,17 +337,13 @@ static void npcm8xx_gcr_enter_reset(Object *obj, ResetType type)
     NPCMGCRState *s = NPCM_GCR(obj);
     NPCMGCRClass *c = NPCM_GCR_GET_CLASS(obj);
 
-    switch (type) {
-    case RESET_TYPE_COLD:
-        memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
-        /* These 3 registers are at the same location in both 7xx and 8xx. */
-        s->regs[NPCM8XX_GCR_PWRON] = s->reset_pwron;
-        s->regs[NPCM8XX_GCR_MDLR] = s->reset_mdlr;
-        s->regs[NPCM8XX_GCR_INTCR3] = s->reset_intcr3;
-        s->regs[NPCM8XX_GCR_INTCR4] = s->reset_intcr4;
-        s->regs[NPCM8XX_GCR_SCRPAD_B] = s->reset_scrpad_b;
-        break;
-    }
+    memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
+    /* These 3 registers are at the same location in both 7xx and 8xx. */
+    s->regs[NPCM8XX_GCR_PWRON] = s->reset_pwron;
+    s->regs[NPCM8XX_GCR_MDLR] = s->reset_mdlr;
+    s->regs[NPCM8XX_GCR_INTCR3] = s->reset_intcr3;
+    s->regs[NPCM8XX_GCR_INTCR4] = s->reset_intcr4;
+    s->regs[NPCM8XX_GCR_SCRPAD_B] = s->reset_scrpad_b;
 }
 
 static void npcm_gcr_realize(DeviceState *dev, Error **errp)
@@ -435,21 +427,10 @@ static const VMStateDescription vmstate_npcm_gcr = {
     },
 };
 
-static Property npcm_gcr_properties[] = {
+static const Property npcm_gcr_properties[] = {
     DEFINE_PROP_UINT32("disabled-modules", NPCMGCRState, reset_mdlr, 0),
     DEFINE_PROP_UINT32("power-on-straps", NPCMGCRState, reset_pwron, 0),
-    DEFINE_PROP_END_OF_LIST(),
 };
-
-static void npcm_gcr_class_init(ObjectClass *klass, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(klass);
-
-    dc->realize = npcm_gcr_realize;
-    dc->vmsd = &vmstate_npcm_gcr;
-
-    device_class_set_props(dc, npcm_gcr_properties);
-}
 
 static void npcm7xx_gcr_class_init(ObjectClass *klass, void *data)
 {
@@ -460,9 +441,12 @@ static void npcm7xx_gcr_class_init(ObjectClass *klass, void *data)
     QEMU_BUILD_BUG_ON(NPCM7XX_GCR_REGS_END > NPCM_GCR_MAX_NR_REGS);
     QEMU_BUILD_BUG_ON(NPCM7XX_GCR_REGS_END != NPCM7XX_GCR_NR_REGS);
     dc->desc = "NPCM7xx System Global Control Registers";
+    dc->realize = npcm_gcr_realize;
+    dc->vmsd = &vmstate_npcm_gcr;
     c->nr_regs = NPCM7XX_GCR_NR_REGS;
     c->cold_reset_values = npcm7xx_cold_reset_values;
     rc->phases.enter = npcm7xx_gcr_enter_reset;
+    device_class_set_props(dc, npcm_gcr_properties);
 }
 
 static void npcm8xx_gcr_class_init(ObjectClass *klass, void *data)
@@ -474,9 +458,12 @@ static void npcm8xx_gcr_class_init(ObjectClass *klass, void *data)
     QEMU_BUILD_BUG_ON(NPCM8XX_GCR_REGS_END > NPCM_GCR_MAX_NR_REGS);
     QEMU_BUILD_BUG_ON(NPCM8XX_GCR_REGS_END != NPCM8XX_GCR_NR_REGS);
     dc->desc = "NPCM8xx System Global Control Registers";
+    dc->realize = npcm_gcr_realize;
+    dc->vmsd = &vmstate_npcm_gcr;
     c->nr_regs = NPCM8XX_GCR_NR_REGS;
     c->cold_reset_values = npcm8xx_cold_reset_values;
     rc->phases.enter = npcm8xx_gcr_enter_reset;
+    device_class_set_props(dc, npcm_gcr_properties);
 }
 
 static const TypeInfo npcm_gcr_info[] = {
@@ -486,7 +473,6 @@ static const TypeInfo npcm_gcr_info[] = {
         .instance_size      = sizeof(NPCMGCRState),
         .instance_init      = npcm_gcr_init,
         .class_size         = sizeof(NPCMGCRClass),
-        .class_init         = npcm_gcr_class_init,
         .abstract           = true,
     },
     {

@@ -541,7 +541,6 @@ static const VMStateDescription vmstate_npcm7xx_fiu = {
 static const Property npcm7xx_fiu_properties[] = {
     DEFINE_PROP_INT32("cs-count", NPCM7xxFIUState, cs_count, 0),
     DEFINE_PROP_SIZE("flash-size", NPCM7xxFIUState, flash_size, 0),
-    DEFINE_PROP_END_OF_LIST(),
 };
 
 static void npcm7xx_fiu_class_init(ObjectClass *klass, void *data)
