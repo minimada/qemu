@@ -480,6 +480,9 @@ static void npcm8xx_realize(DeviceState *dev, Error **errp)
 
     /* CPUs */
     for (i = 0; i < nc->num_cpus; i++) {
+        // WA: force set up all cpu clock
+        ARMCPU *cpu = &s->cpu[i];
+        cpu->gt_cntfrq_hz = 0xbebc200;
         object_property_set_int(OBJECT(&s->cpu[i]), "mp-affinity",
                                 arm_build_mp_affinity(i, NPCM8XX_MAX_NUM_CPUS),
                                 &error_abort);
@@ -488,8 +491,6 @@ static void npcm8xx_realize(DeviceState *dev, Error **errp)
         object_property_set_int(OBJECT(&s->cpu[i]), "core-count",
                                 nc->num_cpus, &error_abort);
 
-        qdev_prop_set_bit(DEVICE(&s->cpu[i]), "start-powered-off",
-                          i > 0);
         object_property_set_bool(OBJECT(&s->cpu[i]), "has_el3", true,
                                  &error_abort);
         // disable QEMU's internal PSCI
