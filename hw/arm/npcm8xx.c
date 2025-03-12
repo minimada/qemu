@@ -16,9 +16,11 @@
 
 #include "qemu/osdep.h"
 
+#include "hw/boards.h"
 #include "hw/arm/boot.h"
+#include "hw/arm/bsa.h"
 #include "hw/arm/npcm8xx.h"
-#include "hw/char/serial.h"
+#include "hw/char/serial-mm.h"
 #include "hw/intc/arm_gic.h"
 #include "hw/loader.h"
 #include "hw/misc/unimp.h"
@@ -26,7 +28,7 @@
 #include "hw/qdev-properties.h"
 #include "qapi/error.h"
 #include "qemu/units.h"
-#include "sysemu/sysemu.h"
+#include "system/system.h"
 
 #define ARM_PHYS_TIMER_PPI  30
 #define ARM_VIRT_TIMER_PPI  27
@@ -37,58 +39,59 @@
  * This covers the whole MMIO space. We'll use this to catch any MMIO accesses
  * that aren't handled by a device.
  */
-#define NPCM8XX_MMIO_BA         (0x80000000)
-#define NPCM8XX_MMIO_SZ         (0x7ffd0000)
+#define NPCM8XX_MMIO_BA         0x80000000
+#define NPCM8XX_MMIO_SZ         0x7ffd0000
 
 /* OTP fuse array */
-#define NPCM8XX_OTP_BA          (0xf0189000)
+#define NPCM8XX_OTP_BA          0xf0189000
 
 /* GIC Distributor */
-#define NPCM8XX_GICD_BA         (0xdfff9000)
-#define NPCM8XX_GICC_BA         (0xdfffa000)
+#define NPCM8XX_GICD_BA         0xdfff9000
+#define NPCM8XX_GICC_BA         0xdfffa000
 
 /* Core system modules. */
-#define NPCM8XX_CPUP_BA         (0xf03fe000)
-#define NPCM8XX_GCR_BA          (0xf0800000)
-#define NPCM8XX_CLK_BA          (0xf0801000)
-#define NPCM8XX_MC_BA           (0xf0824000)
-#define NPCM8XX_RNG_BA          (0xf000b000)
-#define NPCM8XX_SHA_BA          (0xf085a000)
+#define NPCM8XX_CPUP_BA         0xf03fe000
+#define NPCM8XX_GCR_BA          0xf0800000
+#define NPCM8XX_CLK_BA          0xf0801000
+#define NPCM8XX_MC_BA           0xf0824000
+#define NPCM8XX_RNG_BA          0xf000b000
+#define NPCM8XX_SHA_BA          0xf085a000
 
 /* ADC Module */
-#define NPCM8XX_ADC_BA          (0xf000c000)
+#define NPCM8XX_ADC_BA          0xf000c000
 
 /* Internal AHB SRAM */
-#define NPCM8XX_RAM3_BA         (0xc0008000)
+#define NPCM8XX_RAM3_BA         0xc0008000
 #define NPCM8XX_RAM3_SZ         (4 * KiB)
 
 /* Memory blocks at the end of the address space */
-#define NPCM8XX_RAM2_BA         (0xfffb0000)
+#define NPCM8XX_RAM2_BA         0xfffb0000
 #define NPCM8XX_RAM2_SZ         (256 * KiB)
-#define NPCM8XX_ROM_BA          (0xffff0100)
+#define NPCM8XX_ROM_BA          0xffff0100
 #define NPCM8XX_ROM_SZ          (64 * KiB)
-#define NPCM8XX_TIPCOM_BA       (0xf080d000)
+#define NPCM8XX_TIPCOM_BA       0xf080d000
 #define NPCM8XX_TIPCOM_SZ       (4 * KiB)
 
 /* SDHCI Modules */
-#define NPCM8XX_MMC_BA          (0xf0842000)
+#define NPCM8XX_MMC_BA          0xf0842000
 
 /* PSPI Modules */
-#define NPCM8XX_PSPI_BA         (0xf0201000)
+#define NPCM8XX_PSPI_BA         0xf0201000
 
 /* Run PLL1 at 1600 MHz */
-#define NPCM8XX_PLLCON1_FIXUP_VAL   (0x00402101)
+#define NPCM8XX_PLLCON1_FIXUP_VAL   0x00402101
 /* Run the CPU from PLL1 and UART from PLL2 */
-#define NPCM8XX_CLKSEL_FIXUP_VAL    (0x004aaba9)
+#define NPCM8XX_CLKSEL_FIXUP_VAL    0x004aaba9
 
 /* Clock configuration values to be fixed up when bypassing bootloader */
 
 /*
- * Interrupt lines going into the GIC. This does not include internal Cortex-A9
+ * Interrupt lines going into the GIC. This does not include internal Cortex-A35
  * interrupts.
  */
 enum NPCM8xxInterrupt {
     NPCM8XX_ADC_IRQ             = 0,
+    NPCM8XX_PECI_IRQ            = 6,
     NPCM8XX_KCS_HIB_IRQ         = 9,
     NPCM8XX_GMAC1_IRQ           = 14,
     NPCM8XX_GMAC2_IRQ           = 15,
@@ -128,6 +131,8 @@ enum NPCM8xxInterrupt {
     NPCM8XX_MFT5_IRQ,                   /* MFT module 5 */
     NPCM8XX_MFT6_IRQ,                   /* MFT module 6 */
     NPCM8XX_MFT7_IRQ,                   /* MFT module 7 */
+    NPCM8XX_PCI_MBOX1_IRQ       = 105,
+    NPCM8XX_PCI_MBOX2_IRQ,
     NPCM8XX_GPIO0_IRQ           = 116,
     NPCM8XX_GPIO1_IRQ,
     NPCM8XX_GPIO2_IRQ,
@@ -174,7 +179,8 @@ enum NPCM8xxInterrupt {
 
 /* Total number of GIC interrupts, including internal Cortex-A35 interrupts. */
 #define NPCM8XX_NUM_IRQ         (288)
-#define NPCM8XX_PPI_BASE(cpu)   ((NPCM8XX_NUM_IRQ - 32) + (cpu) * 32)
+#define NPCM8XX_PPI_BASE(cpu)   \
+    ((NPCM8XX_NUM_IRQ - GIC_INTERNAL) + (cpu) * GIC_INTERNAL)
 
 /* Register base address for each Timer Module */
 static const hwaddr npcm8xx_tim_addr[] = {
@@ -361,7 +367,7 @@ static struct arm_boot_info npcm8xx_binfo = {
     .smp_loader_start       = NPCM8XX_SMP_LOADER_START,
     .smp_bootreg_addr       = NPCM8XX_SMP_BOOTREG_ADDR,
     .gic_cpu_if_addr        = NPCM8XX_GICC_BA,
-    .secure_boot            = true,
+    .secure_boot            = false,
     .board_id               = -1,
     .board_setup_addr       = NPCM8XX_BOARD_SETUP_ADDR,
 };
@@ -369,6 +375,7 @@ static struct arm_boot_info npcm8xx_binfo = {
 void npcm8xx_load_kernel(MachineState *machine, NPCM8xxState *soc)
 {
     npcm8xx_binfo.ram_size = machine->ram_size;
+
     arm_load_kernel(&soc->cpu[0], machine, &npcm8xx_binfo);
 }
 
@@ -381,7 +388,7 @@ static void npcm8xx_init_fuses(NPCM8xxState *s)
      * The initial mask of disabled modules indicates the chip derivative (e.g.
      * NPCM750 or NPCM730).
      */
-    value = tswap32(nc->disabled_modules);
+    value = cpu_to_le32(nc->disabled_modules);
     npcm7xx_otp_array_write(&s->fuse_array, &value, NPCM7XX_FUSE_DERIVATIVE,
                             sizeof(value));
 }
@@ -525,16 +532,16 @@ static void npcm8xx_realize(DeviceState *dev, Error **errp)
 
         qdev_connect_gpio_out(DEVICE(&s->cpu[i]), GTIMER_PHYS,
             qdev_get_gpio_in(DEVICE(&s->gic),
-                NPCM8XX_PPI_BASE(i) + ARM_PHYS_TIMER_PPI));
+                NPCM8XX_PPI_BASE(i) + ARCH_TIMER_NS_EL1_IRQ));
         qdev_connect_gpio_out(DEVICE(&s->cpu[i]), GTIMER_VIRT,
             qdev_get_gpio_in(DEVICE(&s->gic),
-                NPCM8XX_PPI_BASE(i) + ARM_VIRT_TIMER_PPI));
+                NPCM8XX_PPI_BASE(i) + ARCH_TIMER_VIRT_IRQ));
         qdev_connect_gpio_out(DEVICE(&s->cpu[i]), GTIMER_HYP,
             qdev_get_gpio_in(DEVICE(&s->gic),
-                NPCM8XX_PPI_BASE(i) + ARM_HYP_TIMER_PPI));
+                NPCM8XX_PPI_BASE(i) + ARCH_TIMER_NS_EL2_IRQ));
         qdev_connect_gpio_out(DEVICE(&s->cpu[i]), GTIMER_SEC,
             qdev_get_gpio_in(DEVICE(&s->gic),
-                NPCM8XX_PPI_BASE(i) + ARM_SEC_TIMER_PPI));
+                NPCM8XX_PPI_BASE(i) + ARCH_TIMER_S_EL1_IRQ));
     }
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 0, NPCM8XX_GICD_BA);
     sysbus_mmio_map(SYS_BUS_DEVICE(&s->gic), 1, NPCM8XX_GICC_BA);
@@ -598,7 +605,6 @@ static void npcm8xx_realize(DeviceState *dev, Error **errp)
         sysbus_connect_irq(sbd, NPCM7XX_TIMERS_PER_CTRL,
                 npcm8xx_irq(s, NPCM8XX_WDG0_IRQ + i));
         /* GPIO that connects clk module with watchdog */
-        /* TODO: Check this.*/
         qdev_connect_gpio_out_named(DEVICE(&s->tim[i]),
                 NPCM7XX_WATCHDOG_RESET_GPIO_OUT, 0,
                 qdev_get_gpio_in_named(DEVICE(&s->clk),
@@ -820,13 +826,14 @@ static void npcm8xx_realize(DeviceState *dev, Error **errp)
     create_unimplemented_device("npcm8xx.usbd[7]",      0xf0837000,   4 * KiB);
     create_unimplemented_device("npcm8xx.usbd[8]",      0xf0838000,   4 * KiB);
     create_unimplemented_device("npcm8xx.usbd[9]",      0xf0839000,   4 * KiB);
-    create_unimplemented_device("npcm8xx.pcimbx1",      0xf0848000,  32 * KiB);
+    create_unimplemented_device("npcm8xx.pci_mbox1",    0xf0848000,  64 * KiB);
     create_unimplemented_device("npcm8xx.gdma0",        0xf0850000,   4 * KiB);
     create_unimplemented_device("npcm8xx.gdma1",        0xf0851000,   4 * KiB);
     create_unimplemented_device("npcm8xx.gdma2",        0xf0852000,   4 * KiB);
     create_unimplemented_device("npcm8xx.aes",          0xf0858000,   4 * KiB);
     create_unimplemented_device("npcm8xx.des",          0xf0859000,   4 * KiB);
-    create_unimplemented_device("npcm8xx.pcimbx2",      0xf0868000,  32 * KiB);
+    create_unimplemented_device("npcm8xx.sha",          0xf085a000,   4 * KiB);
+    create_unimplemented_device("npcm8xx.pci_mbox2",    0xf0868000,  64 * KiB);
     create_unimplemented_device("npcm8xx.i3c0",         0xfff10000,   4 * KiB);
     create_unimplemented_device("npcm8xx.i3c1",         0xfff11000,   4 * KiB);
     create_unimplemented_device("npcm8xx.i3c2",         0xfff12000,   4 * KiB);
@@ -839,10 +846,9 @@ static void npcm8xx_realize(DeviceState *dev, Error **errp)
     create_unimplemented_device("npcm8xx.vect",         0xffff0000,   256);
 }
 
-static Property npcm8xx_properties[] = {
+static const Property npcm8xx_properties[] = {
     DEFINE_PROP_LINK("dram-mr", NPCM8xxState, dram, TYPE_MEMORY_REGION,
                      MemoryRegion *),
-    DEFINE_PROP_END_OF_LIST(),
 };
 
 static void npcm8xx_class_init(ObjectClass *oc, void *data)

@@ -1,5 +1,5 @@
 /*
- * Nuvoton NPCM7xx/NPCM8xx System Global Control Registers.
+ * Nuvoton NPCM7xx/8xx System Global Control Registers.
  *
  * Copyright 2020 Google LLC
  *
@@ -13,15 +13,12 @@
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
  * for more details.
  */
-#ifndef NPCM7XX_GCR_H
-#define NPCM7XX_GCR_H
+#ifndef NPCM_GCR_H
+#define NPCM_GCR_H
 
 #include "exec/memory.h"
 #include "hw/sysbus.h"
 #include "qom/object.h"
-
-#define NPCM7XX_GCR_NR_REGS (0x148 / sizeof(uint32_t))
-#define NPCM8XX_GCR_NR_REGS (0xf80 / sizeof(uint32_t))
 
 /*
  * NPCM7XX PWRON STRAP bit fields
@@ -58,8 +55,10 @@
  * this without incrementing the version_id in the vmstate.
  */
 #define NPCM_GCR_MAX_NR_REGS NPCM8XX_GCR_NR_REGS
+#define NPCM7XX_GCR_NR_REGS (0x148 / sizeof(uint32_t))
+#define NPCM8XX_GCR_NR_REGS (0xf80 / sizeof(uint32_t))
 
-struct NPCMGCRState {
+typedef struct NPCMGCRState {
     SysBusDevice parent;
 
     MemoryRegion iomem;
@@ -71,18 +70,18 @@ struct NPCMGCRState {
     uint32_t reset_intcr3;
     uint32_t reset_intcr4;
     uint32_t reset_scrpad_b;
-};
+} NPCMGCRState;
 
-struct NPCMGCRClass {
+typedef struct NPCMGCRClass {
     SysBusDeviceClass parent;
 
     size_t nr_regs;
     const uint32_t *cold_reset_values;
-};
+} NPCMGCRClass;
 
 #define TYPE_NPCM_GCR "npcm-gcr"
-OBJECT_DECLARE_TYPE(NPCMGCRState, NPCMGCRClass, NPCM_GCR)
 #define TYPE_NPCM7XX_GCR "npcm7xx-gcr"
 #define TYPE_NPCM8XX_GCR "npcm8xx-gcr"
+OBJECT_DECLARE_TYPE(NPCMGCRState, NPCMGCRClass, NPCM_GCR)
 
-#endif /* NPCM7XX_GCR_H */
+#endif /* NPCM_GCR_H */

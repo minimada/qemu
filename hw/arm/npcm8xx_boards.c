@@ -17,6 +17,7 @@
 #include "qemu/osdep.h"
 
 #include "chardev/char.h"
+#include "hw/boards.h"
 #include "hw/arm/npcm8xx.h"
 #include "hw/core/cpu.h"
 #include "hw/loader.h"
@@ -27,7 +28,7 @@
 #include "qemu/error-report.h"
 #include "qemu/datadir.h"
 #include "qemu/units.h"
-#include "sysemu/block-backend.h"
+#include "system/block-backend.h"
 
 #define NPCM845_EVB_POWER_ON_STRAPS 0x000017ff
 

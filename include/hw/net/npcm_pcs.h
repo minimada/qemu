@@ -24,7 +24,7 @@
 #define NPCM_PCS_NR_SR_TIMS     (0x22 / sizeof(uint16_t))
 #define NPCM_PCS_NR_VR_MIIS     (0x1c6 / sizeof(uint16_t))
 
-typedef struct NPCMPCSState {
+struct NPCMPCSState {
     SysBusDevice parent;
 
     MemoryRegion iomem;
@@ -34,7 +34,7 @@ typedef struct NPCMPCSState {
     uint16_t sr_mii[NPCM_PCS_NR_SR_MIIS];
     uint16_t sr_tim[NPCM_PCS_NR_SR_TIMS];
     uint16_t vr_mii[NPCM_PCS_NR_VR_MIIS];
-} NPCMPCSState;
+};
 
 #define TYPE_NPCM_PCS "npcm-pcs"
 OBJECT_DECLARE_SIMPLE_TYPE(NPCMPCSState, NPCM_PCS)

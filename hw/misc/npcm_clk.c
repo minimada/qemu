@@ -26,7 +26,7 @@
 #include "qemu/timer.h"
 #include "qemu/units.h"
 #include "trace.h"
-#include "sysemu/watchdog.h"
+#include "system/watchdog.h"
 
 /*
  * The reference clock hz, and the SECCNT and CNTR25M registers in this module,
@@ -72,7 +72,6 @@ enum NPCM7xxCLKRegisters {
     NPCM7XX_CLK_AHBCKFI,
     NPCM7XX_CLK_SECCNT,
     NPCM7XX_CLK_CNTR25M,
-    NPCM7XX_CLK_REGS_END,
 };
 
 enum NPCM8xxCLKRegisters {
@@ -124,7 +123,6 @@ enum NPCM8xxCLKRegisters {
     NPCM8XX_CLK_CLKENDIS3,
     NPCM8XX_CLK_CLKENDIS4,
     NPCM8XX_CLK_THRTL_CNT,
-    NPCM8XX_CLK_REGS_END,
 };
 
 /*
@@ -966,20 +964,15 @@ static void npcm_clk_enter_reset(Object *obj, ResetType type)
     NPCMCLKState *s = NPCM_CLK(obj);
     NPCMCLKClass *c = NPCM_CLK_GET_CLASS(s);
 
-    switch (type) {
-    case RESET_TYPE_COLD:
-        memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
-        s->ref_ns = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-        npcm7xx_clk_update_all_clocks(s);
-        return;
-    }
-
+    size_t sizeof_regs = c->nr_regs * sizeof(uint32_t);
+    g_assert(sizeof(s->regs) >= sizeof_regs);
+    memcpy(s->regs, c->cold_reset_values, sizeof_regs);
+    s->ref_ns = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    npcm7xx_clk_update_all_clocks(s);
     /*
      * A small number of registers need to be reset on a core domain reset,
      * but no such reset type exists yet.
      */
-    qemu_log_mask(LOG_UNIMP, "%s: reset type %d not implemented.",
-                  __func__, type);
 }
 
 static void npcm7xx_clk_init_clock_hierarchy(NPCMCLKState *s)
@@ -1098,10 +1091,10 @@ static const VMStateDescription vmstate_npcm7xx_clk_divider = {
 
 static const VMStateDescription vmstate_npcm_clk = {
     .name = "npcm-clk",
-    .version_id = 2,
-    .minimum_version_id = 2,
+    .version_id = 3,
+    .minimum_version_id = 3,
     .post_load = npcm_clk_post_load,
-    .fields = (VMStateField[]) {
+    .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, NPCMCLKState, NPCM_CLK_MAX_NR_REGS),
         VMSTATE_INT64(ref_ns, NPCMCLKState),
         VMSTATE_CLOCK(clkref, NPCMCLKState),
@@ -1148,8 +1141,6 @@ static void npcm7xx_clk_class_init(ObjectClass *klass, void *data)
     NPCMCLKClass *c = NPCM_CLK_CLASS(klass);
     DeviceClass *dc = DEVICE_CLASS(klass);
 
-    QEMU_BUILD_BUG_ON(NPCM7XX_CLK_REGS_END > NPCM_CLK_MAX_NR_REGS);
-    QEMU_BUILD_BUG_ON(NPCM7XX_CLK_REGS_END != NPCM7XX_CLK_NR_REGS);
     dc->desc = "NPCM7xx Clock Control Registers";
     c->nr_regs = NPCM7XX_CLK_NR_REGS;
     c->cold_reset_values = npcm7xx_cold_reset_values;
@@ -1160,8 +1151,6 @@ static void npcm8xx_clk_class_init(ObjectClass *klass, void *data)
     NPCMCLKClass *c = NPCM_CLK_CLASS(klass);
     DeviceClass *dc = DEVICE_CLASS(klass);
 
-    QEMU_BUILD_BUG_ON(NPCM8XX_CLK_REGS_END > NPCM_CLK_MAX_NR_REGS);
-    QEMU_BUILD_BUG_ON(NPCM8XX_CLK_REGS_END != NPCM8XX_CLK_NR_REGS);
     dc->desc = "NPCM8xx Clock Control Registers";
     c->nr_regs = NPCM8XX_CLK_NR_REGS;
     c->cold_reset_values = npcm8xx_cold_reset_values;

@@ -31,6 +31,7 @@
 #include "hw/misc/npcm7xx_rng.h"
 #include "hw/misc/npcm_sha.h"
 #include "hw/net/npcm_gmac.h"
+#include "hw/net/npcm7xx_emc.h"
 #include "hw/nvram/npcm7xx_otp.h"
 #include "hw/sd/npcm7xx_sdhci.h"
 #include "hw/timer/npcm7xx_timer.h"
@@ -54,28 +55,29 @@
 
 #define NPCM8XX_NR_PWM_MODULES 3
 
-typedef struct NPCM8xxMachine {
-    MachineState        parent;
+struct NPCM8xxMachine {
+    MachineState        parent_obj;
+
     /*
      * PWM fan splitter. each splitter connects to one PWM output and
      * multiple MFT inputs.
      */
     SplitIRQ            fan_splitter[NPCM8XX_NR_PWM_MODULES *
                                      NPCM7XX_PWM_PER_MODULE];
-} NPCM8xxMachine;
+};
 
 
-typedef struct NPCM8xxMachineClass {
-    MachineClass        parent;
+struct NPCM8xxMachineClass {
+    MachineClass        parent_class;
 
     const char          *soc_type;
-} NPCM8xxMachineClass;
+};
 
 #define TYPE_NPCM8XX_MACHINE MACHINE_TYPE_NAME("npcm8xx")
 OBJECT_DECLARE_TYPE(NPCM8xxMachine, NPCM8xxMachineClass, NPCM8XX_MACHINE)
 
-typedef struct NPCM8xxState {
-    DeviceState         parent;
+struct NPCM8xxState {
+    DeviceState         parent_obj;
 
     ARMCPU              cpu[NPCM8XX_MAX_NUM_CPUS];
     CPUClusterState     cpu_cluster;
@@ -105,16 +107,16 @@ typedef struct NPCM8xxState {
     NPCM7xxSDHCIState   mmc;
     NPCM8xxSHAState     sha;
     NPCM8XXPSPIState    pspi;
-} NPCM8xxState;
+};
 
-typedef struct NPCM8xxClass {
-    DeviceClass         parent;
+struct NPCM8xxClass {
+    DeviceClass         parent_class;
 
     /* Bitmask of modules that are permanently disabled on this chip. */
     uint32_t            disabled_modules;
     /* Number of CPU cores enabled in this SoC class. */
     uint32_t            num_cpus;
-} NPCM8xxClass;
+};
 
 #define TYPE_NPCM8XX    "npcm8xx"
 OBJECT_DECLARE_TYPE(NPCM8xxState, NPCM8xxClass, NPCM8XX)

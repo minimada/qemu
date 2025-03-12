@@ -153,7 +153,7 @@ static uint16_t npcm_pcs_read_sr_ctl(NPCMPCSState *s, hwaddr offset)
     if (regno >= NPCM_PCS_NR_SR_CTLS) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: SR_CTL read offset 0x%04" HWADDR_PRIx
-                      " is out of range.",
+                      " is out of range.\n",
                       DEVICE(s)->canonical_path, offset);
         return 0;
     }
@@ -168,7 +168,7 @@ static uint16_t npcm_pcs_read_sr_mii(NPCMPCSState *s, hwaddr offset)
     if (regno >= NPCM_PCS_NR_SR_MIIS) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: SR_MII read offset 0x%04" HWADDR_PRIx
-                      " is out of range.",
+                      " is out of range.\n",
                       DEVICE(s)->canonical_path, offset);
         return 0;
     }
@@ -183,7 +183,7 @@ static uint16_t npcm_pcs_read_sr_tim(NPCMPCSState *s, hwaddr offset)
     if (regno >= NPCM_PCS_NR_SR_TIMS) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: SR_TIM read offset 0x%04" HWADDR_PRIx
-                      " is out of range.",
+                      " is out of range.\n",
                       DEVICE(s)->canonical_path, offset);
         return 0;
     }
@@ -198,7 +198,7 @@ static uint16_t npcm_pcs_read_vr_mii(NPCMPCSState *s, hwaddr offset)
     if (regno >= NPCM_PCS_NR_VR_MIIS) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: VR_MII read offset 0x%04" HWADDR_PRIx
-                      " is out of range.",
+                      " is out of range.\n",
                       DEVICE(s)->canonical_path, offset);
         return 0;
     }
@@ -213,7 +213,7 @@ static void npcm_pcs_write_sr_ctl(NPCMPCSState *s, hwaddr offset, uint16_t v)
     if (regno >= NPCM_PCS_NR_SR_CTLS) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: SR_CTL write offset 0x%04" HWADDR_PRIx
-                      " is out of range.",
+                      " is out of range.\n",
                       DEVICE(s)->canonical_path, offset);
         return;
     }
@@ -228,7 +228,7 @@ static void npcm_pcs_write_sr_mii(NPCMPCSState *s, hwaddr offset, uint16_t v)
     if (regno >= NPCM_PCS_NR_SR_MIIS) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: SR_MII write offset 0x%04" HWADDR_PRIx
-                      " is out of range.",
+                      " is out of range.\n",
                       DEVICE(s)->canonical_path, offset);
         return;
     }
@@ -248,7 +248,7 @@ static void npcm_pcs_write_sr_tim(NPCMPCSState *s, hwaddr offset, uint16_t v)
     if (regno >= NPCM_PCS_NR_SR_TIMS) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: SR_TIM write offset 0x%04" HWADDR_PRIx
-                      " is out of range.",
+                      " is out of range.\n",
                       DEVICE(s)->canonical_path, offset);
         return;
     }
@@ -263,7 +263,7 @@ static void npcm_pcs_write_vr_mii(NPCMPCSState *s, hwaddr offset, uint16_t v)
     if (regno >= NPCM_PCS_NR_VR_MIIS) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "%s: VR_MII write offset 0x%04" HWADDR_PRIx
-                      " is out of range.",
+                      " is out of range.\n",
                       DEVICE(s)->canonical_path, offset);
         return;
     }
@@ -298,7 +298,7 @@ static uint64_t npcm_pcs_read(void *opaque, hwaddr offset, unsigned size)
 
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
-                          "%s: Read with invalid indirect address base: 0x%02"
+                          "%s: Read with invalid indirect address base: 0x%"
                           PRIx16 "\n", DEVICE(s)->canonical_path,
                           s->indirect_access_base);
         }
@@ -345,9 +345,9 @@ static void npcm_pcs_write(void *opaque, hwaddr offset,
     }
 }
 
-static void npcm_pcs_reset(DeviceState *dev)
+static void npcm_pcs_enter_reset(Object *obj, ResetType type)
 {
-    NPCMPCSState *s = NPCM_PCS(dev);
+    NPCMPCSState *s = NPCM_PCS(obj);
 
     npcm_pcs_soft_reset(s);
 }
@@ -389,13 +389,14 @@ static const VMStateDescription vmstate_npcm_pcs = {
 
 static void npcm_pcs_class_init(ObjectClass *klass, void *data)
 {
+    ResettableClass *rc = RESETTABLE_CLASS(klass);
     DeviceClass *dc = DEVICE_CLASS(klass);
 
-    set_bit(DEVICE_CATEGORY_NETWORK, dc->categories);
+    set_bit(DEVICE_CATEGORY_MISC, dc->categories);
     dc->desc = "NPCM PCS Controller";
     dc->realize = npcm_pcs_realize;
-    dc->reset = npcm_pcs_reset;
     dc->vmsd = &vmstate_npcm_pcs;
+    rc->phases.enter = npcm_pcs_enter_reset;
 }
 
 static const TypeInfo npcm_pcs_types[] = {

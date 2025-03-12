@@ -66,7 +66,6 @@ enum NPCM7xxGCRRegisters {
     NPCM7XX_GCR_SCRPAD          = 0x013c / sizeof(uint32_t),
     NPCM7XX_GCR_USB1PHYCTL,
     NPCM7XX_GCR_USB2PHYCTL,
-    NPCM7XX_GCR_REGS_END,
 };
 
 static const uint32_t npcm7xx_cold_reset_values[NPCM7XX_GCR_NR_REGS] = {
@@ -171,7 +170,7 @@ enum NPCM8xxGCRRegisters {
     NPCM8XX_GCR_SCRPAD_00       = 0xe00 / sizeof(uint32_t),
     /* 32 semaphore registers start here. 0xf00 ~ 0xf7c */
     NPCM8XX_GCR_GP_SEMFR_00     = 0xf00 / sizeof(uint32_t),
-    NPCM8XX_GCR_REGS_END        = 0xf80 / sizeof(uint32_t),
+    NPCM8XX_GCR_GP_SEMFR_31     = 0xf7c / sizeof(uint32_t),
 };
 
 static const uint32_t npcm8xx_cold_reset_values[NPCM8XX_GCR_NR_REGS] = {
@@ -194,7 +193,7 @@ static const uint32_t npcm8xx_cold_reset_values[NPCM8XX_GCR_NR_REGS] = {
     [NPCM8XX_GCR_USB2PHYCTL]    = 0x034730e4,
     [NPCM8XX_GCR_USB3PHYCTL]    = 0x034730e4,
     /* All 32 semaphores should be initialized to 1. */
-    [NPCM8XX_GCR_GP_SEMFR_00...NPCM8XX_GCR_REGS_END - 1] = 0x00000001,
+    [NPCM8XX_GCR_GP_SEMFR_00...NPCM8XX_GCR_GP_SEMFR_31] = 0x00000001,
 };
 
 static uint64_t npcm_gcr_read(void *opaque, hwaddr offset, unsigned size)
@@ -217,16 +216,15 @@ static uint64_t npcm_gcr_read(void *opaque, hwaddr offset, unsigned size)
         break;
 
     case 8:
-        value = s->regs[reg] + (((uint64_t)s->regs[reg + 1]) << 32);
+        g_assert(!(reg & 1));
+        value = deposit64(s->regs[reg], 32, 32, s->regs[reg + 1]);
         break;
 
     default:
         g_assert_not_reached();
     }
 
-    if (s->regs[reg] != 0) {
-        trace_npcm_gcr_read(offset, value);
-    }
+    trace_npcm_gcr_read(offset, value);
     return value;
 }
 
@@ -274,8 +272,9 @@ static void npcm_gcr_write(void *opaque, hwaddr offset,
         break;
 
     case 8:
+        g_assert(!(reg & 1));
         s->regs[reg] = value;
-        s->regs[reg + 1] = v >> 32;
+        s->regs[reg + 1] = extract64(v, 32, 32);
         break;
 
     default:
@@ -325,15 +324,13 @@ static void npcm7xx_gcr_enter_reset(Object *obj, ResetType type)
     NPCMGCRState *s = NPCM_GCR(obj);
     NPCMGCRClass *c = NPCM_GCR_GET_CLASS(obj);
 
-    switch (type) {
-    case RESET_TYPE_COLD:
-        memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
-        /* These 3 registers are at the same location in both 7xx and 8xx. */
-        s->regs[NPCM7XX_GCR_PWRON] = s->reset_pwron;
-        s->regs[NPCM7XX_GCR_MDLR] = s->reset_mdlr;
-        s->regs[NPCM7XX_GCR_INTCR3] = s->reset_intcr3;
-        break;
-    }
+    g_assert(sizeof(s->regs) >= sizeof(c->cold_reset_values));
+    g_assert(sizeof(s->regs) >= c->nr_regs * sizeof(uint32_t));
+    memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
+    /* These 3 registers are at the same location in both 7xx and 8xx. */
+    s->regs[NPCM7XX_GCR_PWRON] = s->reset_pwron;
+    s->regs[NPCM7XX_GCR_MDLR] = s->reset_mdlr;
+    s->regs[NPCM7XX_GCR_INTCR3] = s->reset_intcr3;
 }
 
 static void npcm8xx_gcr_enter_reset(Object *obj, ResetType type)
@@ -341,17 +338,12 @@ static void npcm8xx_gcr_enter_reset(Object *obj, ResetType type)
     NPCMGCRState *s = NPCM_GCR(obj);
     NPCMGCRClass *c = NPCM_GCR_GET_CLASS(obj);
 
-    switch (type) {
-    case RESET_TYPE_COLD:
-        memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
-        /* These 3 registers are at the same location in both 7xx and 8xx. */
-        s->regs[NPCM8XX_GCR_PWRON] = s->reset_pwron;
-        s->regs[NPCM8XX_GCR_MDLR] = s->reset_mdlr;
-        s->regs[NPCM8XX_GCR_INTCR3] = s->reset_intcr3;
-        s->regs[NPCM8XX_GCR_INTCR4] = s->reset_intcr4;
-        s->regs[NPCM8XX_GCR_SCRPAD_B] = s->reset_scrpad_b;
-        break;
-    }
+    memcpy(s->regs, c->cold_reset_values, c->nr_regs * sizeof(uint32_t));
+    /* These 3 registers are at the same location in both 7xx and 8xx. */
+    s->regs[NPCM8XX_GCR_PWRON] = s->reset_pwron;
+    s->regs[NPCM8XX_GCR_MDLR] = s->reset_mdlr;
+    s->regs[NPCM8XX_GCR_INTCR3] = s->reset_intcr3;
+    s->regs[NPCM8XX_GCR_SCRPAD_B] = s->reset_scrpad_b;
 }
 
 static void npcm_gcr_realize(DeviceState *dev, Error **errp)
@@ -427,18 +419,17 @@ static void npcm_gcr_init(Object *obj)
 
 static const VMStateDescription vmstate_npcm_gcr = {
     .name = "npcm-gcr",
-    .version_id = 1,
-    .minimum_version_id = 1,
-    .fields = (VMStateField[]) {
+    .version_id = 2,
+    .minimum_version_id = 2,
+    .fields = (const VMStateField[]) {
         VMSTATE_UINT32_ARRAY(regs, NPCMGCRState, NPCM_GCR_MAX_NR_REGS),
         VMSTATE_END_OF_LIST(),
     },
 };
 
-static Property npcm_gcr_properties[] = {
+static const Property npcm_gcr_properties[] = {
     DEFINE_PROP_UINT32("disabled-modules", NPCMGCRState, reset_mdlr, 0),
     DEFINE_PROP_UINT32("power-on-straps", NPCMGCRState, reset_pwron, 0),
-    DEFINE_PROP_END_OF_LIST(),
 };
 
 static void npcm_gcr_class_init(ObjectClass *klass, void *data)
@@ -457,9 +448,9 @@ static void npcm7xx_gcr_class_init(ObjectClass *klass, void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
     ResettableClass *rc = RESETTABLE_CLASS(klass);
 
-    QEMU_BUILD_BUG_ON(NPCM7XX_GCR_REGS_END > NPCM_GCR_MAX_NR_REGS);
-    QEMU_BUILD_BUG_ON(NPCM7XX_GCR_REGS_END != NPCM7XX_GCR_NR_REGS);
     dc->desc = "NPCM7xx System Global Control Registers";
+    rc->phases.enter = npcm7xx_gcr_enter_reset;
+
     c->nr_regs = NPCM7XX_GCR_NR_REGS;
     c->cold_reset_values = npcm7xx_cold_reset_values;
     rc->phases.enter = npcm7xx_gcr_enter_reset;
@@ -471,8 +462,6 @@ static void npcm8xx_gcr_class_init(ObjectClass *klass, void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
     ResettableClass *rc = RESETTABLE_CLASS(klass);
 
-    QEMU_BUILD_BUG_ON(NPCM8XX_GCR_REGS_END > NPCM_GCR_MAX_NR_REGS);
-    QEMU_BUILD_BUG_ON(NPCM8XX_GCR_REGS_END != NPCM8XX_GCR_NR_REGS);
     dc->desc = "NPCM8xx System Global Control Registers";
     c->nr_regs = NPCM8XX_GCR_NR_REGS;
     c->cold_reset_values = npcm8xx_cold_reset_values;

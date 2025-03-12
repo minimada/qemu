@@ -180,12 +180,12 @@ struct NPCMCLKState {
     Clock *clkref;
 };
 
-struct NPCMCLKClass {
+typedef struct NPCMCLKClass {
     SysBusDeviceClass parent;
 
     size_t nr_regs;
     const uint32_t *cold_reset_values;
-};
+} NPCMCLKClass;
 
 #define TYPE_NPCM_CLK "npcm-clk"
 OBJECT_DECLARE_TYPE(NPCMCLKState, NPCMCLKClass, NPCM_CLK)

@@ -28,6 +28,9 @@
 
 #include "trace.h"
 
+/* Up to 128 MiB of flash may be accessed directly as memory. */
+#define NPCM7XX_FIU_MAX_FLASH_WINDOW_SIZE (128 * MiB)
+
 /* Each module has 4 KiB of register space. Only a fraction of it is used. */
 #define NPCM7XX_FIU_CTRL_REGS_SIZE (4 * KiB)
 
@@ -480,7 +483,7 @@ static void npcm7xx_fiu_enter_reset(Object *obj, ResetType type)
     s->regs[NPCM7XX_FIU_CFG] = 0x0000000b;
 }
 
-static void npcm7xx_fiu_hold_reset(Object *obj)
+static void npcm7xx_fiu_hold_reset(Object *obj, ResetType type)
 {
     NPCM7xxFIUState *s = NPCM7XX_FIU(obj);
     int i;
@@ -501,6 +504,17 @@ static void npcm7xx_fiu_realize(DeviceState *dev, Error **errp)
     if (s->cs_count <= 0) {
         error_setg(errp, "%s: %d chip selects specified, need at least one",
                    dev->canonical_path, s->cs_count);
+        return;
+    }
+
+    if (s->flash_size == 0) {
+        error_setg(errp, "%s: flash size must be set", dev->canonical_path);
+        return;
+    }
+
+    if (s->flash_size > NPCM7XX_FIU_MAX_FLASH_WINDOW_SIZE) {
+        error_setg(errp, "%s: flash size should not exceed 128 MiB",
+                   dev->canonical_path);
         return;
     }
 
@@ -538,10 +552,9 @@ static const VMStateDescription vmstate_npcm7xx_fiu = {
     },
 };
 
-static Property npcm7xx_fiu_properties[] = {
+static const Property npcm7xx_fiu_properties[] = {
     DEFINE_PROP_INT32("cs-count", NPCM7xxFIUState, cs_count, 0),
     DEFINE_PROP_SIZE("flash-size", NPCM7xxFIUState, flash_size, 0),
-    DEFINE_PROP_END_OF_LIST(),
 };
 
 static void npcm7xx_fiu_class_init(ObjectClass *klass, void *data)
